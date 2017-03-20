@@ -10,43 +10,6 @@ public class AnimationHandler : MonoBehaviour {
 	/*
 	 * Animation Handler for Units.
 	 * 
-	 * In here we're going to provide Unity Events that we'll use to invoke triggers and booleans in the animation controller.
-	 * 
-	 * Also during ladder climbing and stuff, we need to tell the anim controller to set the ladder climb animation.
-	 * 
-	 * Idle animation needs to be set manually.
-	 * Make a list of animations for the idles.
-	 * Make another list for the "roll" or "number of rolls" or "chance" for each one.
-	 * 
-	 * we need events for the changing of each tye of value, from jumping, double-jumping, falling, running, idle
-	 * 
-	 * We need to track velocity.
-	 * 
-	 * Talk to the playercontroller, and check if we're moving forwards or not?
-	 * Or maybe the player controller talks to animation handler.
-	 * Or maybe we just track the velocity.
-	 * 
-	 * Tracking velocity and grounded would be a good idea.
-	 * We also want to get the general acceleration of the player. 
-	 * Maybe something like, if we're slowing down...
-	 * 
-	 * We need a public bool somewhere that says "IsHoldingRight". We can't get input here. We need to talk to the gameunit for this because this should work for 
-	 * enemies as well.
-	 * 
-	 * have a checkmark for "stopping animation"
-	 * 
-	 * So:
-	 * 
-	 * enter idle
-	 * 
-	 * running
-	 * IF (grounded) and (moving)
-	 * 
-	 * We need to also get the animations from the animations in a character game object.
-
-        OK. So, we search for the animations first.
-        I guess this will be done during runtime.
-	 * 
 	 */
 
     Animation playerAnim;
