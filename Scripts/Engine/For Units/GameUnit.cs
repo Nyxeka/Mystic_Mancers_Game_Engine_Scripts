@@ -65,10 +65,10 @@ public class GameUnit : MonoBehaviour {
     public Rigidbody unitRB;
 
     [HideInInspector]
-    public bool grounded;
+    public bool grounded = true;
 
     [HideInInspector]
-    public bool ladder;
+    public bool ladder = false;
 
     [HideInInspector]
     public float ladderLockXLocation;
@@ -93,6 +93,7 @@ public class GameUnit : MonoBehaviour {
 	[HideInInspector]
 	public float directionMult = 1.0f;
 
+    [Header("Ignore this if the unit doesn't use dash.")]
 	public float dashSpeedMult = 0.5f;
 
 	public UnityEvent dashStartMethods;

@@ -7,29 +7,8 @@ using UnityEngine;
 public class PlayerController : UnitController {
    /* 
     * Player Controller
-    * 
-	* NOTES:
-	* Horizontal axis isn't static...
-	* 
-	* Directional input is going to be a mouse-position thing. Option to calibrate, since using steam controller? How are we going to set the position the cursor should be in?
-	* Should we set limits for the cursor?
-	* 
-	* Should probably have two inputs for movement, one for using horizontal axis, and one for using mouse. For now we'll get horizontal axis.
-	* 
-	* want to drag this into unit, let user say which inputs do which abilities,
-	* Set speed, etc...
-	* 
-	* To-do:
-	* Get inputs
-	* 
-	* horizontal axis:					Move left/right
-	* Fire1 - left mouse	ctrl	B:	Ability1
-	* Fire2 - right mouse	alt		Y:	Ability2
-	* Fire3 - middle mouse	shift	X: 	Dash
-	* Jump  - 				space	A: 	Jump
-	* 
-	* 
-	*/
+    *
+    */
 
 	public enum InputMethod
 	{
