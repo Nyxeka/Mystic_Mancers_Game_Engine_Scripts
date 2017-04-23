@@ -6,11 +6,14 @@ using UnityEngine.Events;
 [AddComponentMenu("Final Integrated Stuff/Resource")]
 public class Resource : MonoBehaviour {
 
-	//used for things like health and mana
+    //------------------------
+    // RPG Resource Component
+    // By: Nicholas J. Hylands
+    // me@nickhylands.com
+    // github.com/nyxeka
+    //------------------------
 
-
-
-	public string resourceName = "New Resource";
+    public string resourceName = "New Resource";
 	[Space(20)]
 	public float amount = 100.0f;
 	public float minimum = 0.0f;
@@ -95,6 +98,13 @@ public class Resource : MonoBehaviour {
 		onEmptyEvent.Invoke ();
 
 	}
+
+    public void refresh()
+    {
+
+        amount = maximum;
+
+    }
 
 	public void triggerSecondaryTriggerEvent(){
 

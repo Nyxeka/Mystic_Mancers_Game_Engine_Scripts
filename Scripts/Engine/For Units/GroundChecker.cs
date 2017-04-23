@@ -4,7 +4,16 @@ using UnityEngine;
 
 public class GroundChecker : MonoBehaviour {
 
-	private PlayerController myCon;
+    //------------------------
+    // Ground Checker
+    // By: Nicholas J. Hylands
+    // me@nickhylands.com
+    // github.com/nyxeka
+    //------------------------
+
+    // requires a trigger collider where you want to look for the ground.
+
+    private PlayerController myCon;
 
 	void OnTriggerStay(){
 

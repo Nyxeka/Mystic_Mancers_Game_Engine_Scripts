@@ -18,7 +18,7 @@ public class AnimationHandlerEditor : Editor
 
     SerializedProperty animControllerName;
 
-    bool manualAnimController;
+    SerializedProperty manualAnimController;
 
     void OnEnable()
     {
@@ -29,6 +29,8 @@ public class AnimationHandlerEditor : Editor
         climbingAnimSpeedMult = serializedObject.FindProperty("climbingAnimSpeedMult");
         attackingAnimSpeed = serializedObject.FindProperty("attackingAnimSpeed");
         animControllerName = serializedObject.FindProperty("animControllerName");
+
+        manualAnimController = serializedObject.FindProperty("manualAnimController");
     }
 
 
@@ -54,16 +56,19 @@ public class AnimationHandlerEditor : Editor
         GUILayout.Box("-------------------------"
             + "\n", GUILayout.ExpandWidth(true));
 
-        manualAnimController = EditorGUILayout.Toggle("Custom Anim Controller", manualAnimController);
+        manualAnimController.boolValue = EditorGUILayout.Toggle("Custom Anim Controller", manualAnimController.boolValue);
 
-        if (manualAnimController)
+        if (manualAnimController.boolValue)
         {
             GUILayout.Box("Put your custom animation controller in a Resources folder, and then input the name of the controller here.", GUILayout.ExpandWidth(true));
             animControllerName.stringValue = EditorGUILayout.TextField(animControllerName.stringValue);
 
+        } else
+        {
+            GUILayout.Space(56); //make some room to look fancy
         }
 
-        GUILayout.Space(60);
+        
 
         serializedObject.ApplyModifiedProperties();
     }

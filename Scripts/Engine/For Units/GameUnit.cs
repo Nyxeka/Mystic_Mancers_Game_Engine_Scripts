@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.SceneManagement;
 
 public enum LegDir {
 
@@ -18,6 +19,13 @@ public enum ArmDir
 
 [AddComponentMenu("Final Integrated Stuff/Game Unit")]
 public class GameUnit : MonoBehaviour {
+
+    //------------------------
+    // Game Unit Component
+    // By: Nicholas J. Hylands
+    // me@nickhylands.com
+    // github.com/nyxeka
+    //------------------------
 
     /*
 	 * Unit Script
@@ -37,11 +45,6 @@ public class GameUnit : MonoBehaviour {
 	 * 
 	 */
 
-
-
-
-
-
     public string unitName = "new unit";
 
 
@@ -50,6 +53,11 @@ public class GameUnit : MonoBehaviour {
     //public bool canFly = false;
 
     public bool gravity = true;
+
+    public float resetSceneDelay = 2.0f;
+
+    // if the unit goes below this height, it dies.
+    public float lowestHeightToKill = -250.0f;
 
     //public GameObject belongsToFaction;
     //[Tooltip("Use for your units animation controller setup - unit input controllers and AI controllers are added via component menu.")]
@@ -110,6 +118,13 @@ public class GameUnit : MonoBehaviour {
 
     bool maintainSpeed = true;
 
+    public UnityEvent startMovingEvents;
+    public UnityEvent stopMovingEvents;
+
+    Vector3 oldPosition;
+
+    bool dead = false;
+
 	// Use this for initialization
 	void Start () {
 		
@@ -143,6 +158,13 @@ public class GameUnit : MonoBehaviour {
         StartCoroutine(MaintainSpeed());
 
 	}
+
+    public string GetUnitHash()
+    {
+
+        return unitName + transform.tag;
+
+    }
 
 	float boolToNormal(bool tester){
 		if (tester)
@@ -181,16 +203,18 @@ public class GameUnit : MonoBehaviour {
         //LADDER HANDLING
         if (ladder && canClimb) {
 
+            // player is holidng up or down
             if (armDir != ArmDir.forwards) {
                 if (ladderLocked) {
 
                     if (!(grounded && armDir == ArmDir.down))
                     {
-
+                        // bool is 0 or 1. Set climb speed based on this.
                         newVelocity.y = (boolToNormal(armDir == ArmDir.up)) * ladderClimbSpeed;
 
+                        // make sure the player's sideways position is locked to the ladder
                         unitRB.MovePosition(new Vector3(ladderLockXLocation, unitRB.position.y, unitRB.position.z));
-                        unitRB.velocity = newVelocity;
+                        unitRB.velocity = newVelocity;// apply vertical velocity;
                     }
 
                 } else {
@@ -199,9 +223,10 @@ public class GameUnit : MonoBehaviour {
 
                 }
             } else {
-
+                // player is not holding up or down.
                 if (ladderLocked) {
 
+                    //keep player in place.
                     newVelocity.y = 0;
                     unitRB.MovePosition(new Vector3(ladderLockXLocation, unitRB.position.y, unitRB.position.z));
                     unitRB.velocity = newVelocity;
@@ -242,32 +267,88 @@ public class GameUnit : MonoBehaviour {
 
 		}
 
+        if (transform.position.y < lowestHeightToKill)
+        {
+
+            Kill();
+
+        }
+
 	}
 
-    IEnumerator MaintainSpeed()
+    public IEnumerator doMovementChecking()
     {
+        bool inMotion = false;
+        bool oldInMotion = false;
+        while (true)
+        {
+
+            inMotion = ((oldPosition - transform.position).magnitude > 0.03);
+
+            if (inMotion && !oldInMotion)
+            {
+
+                startMovingEvents.Invoke();
+
+            } else if (!inMotion && oldInMotion)
+            {
+
+                stopMovingEvents.Invoke();
+
+            }
+
+            oldInMotion = inMotion;
+            oldPosition = transform.position;
+            yield return new WaitForSeconds(0.1f);
+        }
+
+    }
+
+    //reset the unit, refresh health, mana, cooldowns, etc...
+    public void refresh()
+    {
+        //refresh health
+        Health h;
+
+        if (h = GetComponent<Health>())
+            h.numPips = h.maxPips;
+
+        //refresh mana and etc...
+        Resource[] rs = GetComponents<Resource>();
+
+        foreach(Resource res in rs)
+        {
+            res.refresh();
+        }
+
+        //reset ability cooldowns
+        foreach(KeyValuePair<string,Ability> abil in abilityList)
+        {
+            abil.Value.ResetCooldown();
+        }
+
+    }
+
+    IEnumerator MaintainSpeed() 
+    {
+        // make sure that the unit never goes over a certain speed.
+        // just in case the unit ends up being shot out of a wierd physics collision
+        // like a cannon.
 
         while (maintainSpeed)
         {
 
             if (unitRB.velocity.magnitude > maximumMagnitude)
-            {
-
                 unitRB.velocity = unitRB.velocity.normalized * maximumMagnitude;
-
-
-
-            }
-
+                
             yield return new WaitForFixedUpdate();
 
         }
-
-        yield return null;
-
     }
 
+    
 	public void addVelocityY(float newForce){
+        // can be used for jumping and such.
 		if (ladderLocked)
 			ladderLocked = false;
 		else
@@ -275,6 +356,7 @@ public class GameUnit : MonoBehaviour {
 	}
 
 	public void addVelocityX(float newForce){
+        // can be used for movement.
 		if (ladderLocked)
 			ladderLocked = false;
 		else
@@ -285,6 +367,7 @@ public class GameUnit : MonoBehaviour {
 	///Basically for Jump.
 	///</summary>
 	public void setVelocityY(float newVelocity){
+        // can be used for jumping.
 		if (ladderLocked)
 			ladderLocked = false;
 		else
@@ -328,7 +411,7 @@ public class GameUnit : MonoBehaviour {
 		} else {
 
 			//Does not exist!!
-			Debug.Log("Tried to trigger ability that does not exist: " + abilityName);
+			//Debug.Log("Tried to trigger ability that does not exist: " + abilityName);
 			return false;
 		}
 
@@ -349,7 +432,7 @@ public class GameUnit : MonoBehaviour {
         else {
 
             //Does not exist!!
-            Debug.Log("Tried to trigger ability that does not exist: " + abilityName);
+            //Debug.Log("Tried to trigger ability that does not exist: " + abilityName);
         }
 
     }
@@ -369,7 +452,7 @@ public class GameUnit : MonoBehaviour {
         else {
 
             //Does not exist!!
-            Debug.Log("Tried to trigger ability that does not exist: " + abilityName);
+            //Debug.Log("Tried to trigger ability that does not exist: " + abilityName);
             return false;
         }
 
@@ -377,8 +460,27 @@ public class GameUnit : MonoBehaviour {
 
     //TO-DO: Add an "on death" event list.
     public void Kill(){
+        if (!dead)
+        {
+            dead = true;
+            if (tag == "Player")
+            {
 
-		Debug.Log ("Killed: " + unitName);
+                StartCoroutine(StartKillTimer());
 
+            }
+            //Debug.Log ("Killed: " + unitName);
+            ForceTriggerAbility("Die");
+        }
 	}
+
+    IEnumerator StartKillTimer()
+    {
+
+        yield return new WaitForSeconds(resetSceneDelay);
+        Scene curScene = SceneManager.GetActiveScene();
+        SceneManager.LoadScene(curScene.name);
+        //UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.)
+
+    }
 }

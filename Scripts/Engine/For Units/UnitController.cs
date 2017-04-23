@@ -4,7 +4,14 @@ using UnityEngine;
 
 public class UnitController : MonoBehaviour {
 
-	/*
+    //------------------------
+    // Unit Controller
+    // By: Nicholas J. Hylands
+    // me@nickhylands.com
+    // github.com/nyxeka
+    //------------------------
+
+    /*
 	 * 
 	 * Unit Controller Script
 	 * 
@@ -22,7 +29,7 @@ public class UnitController : MonoBehaviour {
 	 * AI controller will be a fair bit more complicated, but it will also only be using these. 
 	 */
 
-	[HideInInspector]
+    [HideInInspector]
 	public GameUnit _unit;
 
 	void Start(){

@@ -6,27 +6,14 @@ using UnityEngine.Events;
 [AddComponentMenu("Final Integrated Stuff/HealthInPips")]
 public class Health : MonoBehaviour {
 
-	/*
-	 * 
-	 * Health Pips Scripts
-	 * 
-	 * Special resource that uses fixed integers as health amount.
-	 * 
-	 * functions needed:
-	 * 
-	 * Add()
-	 * Remove()
-	 * Set()
-	 * Get()
-	 * Manually trigger onEmptyEvents
-	 * 
-	 * SetMax()
-	 * SetMin()
-	 * 
-	 * 
-	 */
+    //------------------------
+    // Health Pip Component
+    // By: Nicholas J. Hylands
+    // me@nickhylands.com
+    // github.com/nyxeka
+    //------------------------
 
-	[Header("Health Resource")]
+    [Header("Health Resource")]
 
 	//Standard set for a resource
 	public int numPips = 8;
@@ -41,6 +28,12 @@ public class Health : MonoBehaviour {
 
 	public UnityEvent onEmptyEvent;
 
+    public UnityEvent takeDamageEvent;
+
+    public float takeDamageCooldown = 0.0f;
+
+    public bool immuneWhileCooldown = false;
+
     public float pipVerticalOffset = 10f;
 
     //distance that goes between floating health-pips.
@@ -54,10 +47,21 @@ public class Health : MonoBehaviour {
     //floating pips
     List<Transform> fPips;
 
+    public bool dead = false;
+    bool immune = false;
+
 	public void Start(){
 		numPips = maxPips;
         oldPips = numPips;
         fPips = new List<Transform>();
+        
+
+        if (healthPip == null)
+        {
+
+            healthPip = Resources.Load<Transform>("HealthPipPrefab");
+
+        }
         updateFloatingPips();
 
     }
@@ -103,25 +107,32 @@ public class Health : MonoBehaviour {
 
 
     }
+
+    IEnumerator CooldownTakeDamage()
+    {
+        immune = true;
+        yield return new WaitForSeconds(takeDamageCooldown);
+        immune = false;
+    }
     
 	public void Update(){
         checkInBounds();
         
 		if (numPips <= minPips && invokeOnEmptyEvent) {
-
-			onEmptyEvent.Invoke ();
+            if (dead == false)
+            {
+                onEmptyEvent.Invoke();
+                dead = true;
+            }
 
 		}
 
         if (oldPips != numPips)
         {
-
             //value changed! change the list of floating health pips!
-            
             updateFloatingPips();
             oldPips = numPips;
         }
-
 	}
 
 	public void addHealth(int healthMod){
@@ -133,11 +144,14 @@ public class Health : MonoBehaviour {
 
     public void removeHealth(int healthMod)
     {
-
-        numPips -= healthMod;
-        checkInBounds();
-        //Debug.Log(numPips.ToString());
-
+        if (!immune)
+        {
+            numPips -= healthMod;
+            checkInBounds();
+            takeDamageEvent.Invoke();
+            StartCoroutine("CooldownTakeDamage");
+            //Debug.Log(numPips.ToString());
+        }
     }
 
 	//For use within this object

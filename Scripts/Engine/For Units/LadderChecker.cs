@@ -4,7 +4,14 @@ using UnityEngine;
 
 public class LadderChecker : MonoBehaviour {
 
-	GameUnit _unit;
+    //------------------------
+    // 2.5D Sidescroller Interactible Ladder
+    // By: Nicholas J. Hylands
+    // me@nickhylands.com
+    // github.com/nyxeka
+    //------------------------
+
+    GameUnit _unit; // Unit using the ladder
 
 	void OnTriggerStay(Collider collisionData){
 		
@@ -12,6 +19,7 @@ public class LadderChecker : MonoBehaviour {
 
 		if (_unit) {
 
+            // tell the unit that we're using the ladder
 			_unit.ladder = true;
 			_unit.ladderLockXLocation = gameObject.transform.position.x;
 

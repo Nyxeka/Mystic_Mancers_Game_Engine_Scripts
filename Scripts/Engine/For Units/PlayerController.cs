@@ -5,12 +5,15 @@ using UnityEngine;
 
 [AddComponentMenu("Final Integrated Stuff/Player Controller")]
 public class PlayerController : UnitController {
-   /* 
-    * Player Controller
-    *
-    */
 
-	public enum InputMethod
+    //------------------------
+    // Player Input Handler
+    // By: Nicholas J. Hylands
+    // me@nickhylands.com
+    // github.com/nyxeka
+    //------------------------
+
+    public enum InputMethod
 	{
 		mouseKeyboard, steamcontroller, gamePad
 	}
@@ -25,8 +28,7 @@ public class PlayerController : UnitController {
 	public string ability2Name = "Ability2";
 	public string ability3Name = "Dash";
 	public string ability4Name = "Jump";
-
-	//Horizonal axis is going to be another speed-mult.
+    
 	private float horizontalAxis = .0f;
 	private float verticalAxis = .0f;
 
@@ -44,6 +46,8 @@ public class PlayerController : UnitController {
     [HideInInspector]
     public bool grounded = true;
 
+    SelectedCharacterHandler SCH;
+
 	//public float groundDistCheck = 0.5f;
 
 	void Start(){
@@ -53,14 +57,67 @@ public class PlayerController : UnitController {
 
 		newVelocity = new Vector3 ();
 
+        StartCoroutine(initialize());
+
 	}
+
+    IEnumerator initialize()
+    {
+
+        yield return new WaitForSeconds(1);
+        
+        GameObject SCHGO = GameObject.FindGameObjectWithTag("SCH");
+        if (SCHGO != null)
+        {
+            //Debug.Log("Found SCH. attaching.");
+            SCH = SCHGO.GetComponent<SelectedCharacterHandler>();
+        }
+            
+
+    }
+
+    public void showDeathScreen()
+    {
+
+        GameObject hudGO;
+
+        if (hudGO = GameObject.FindGameObjectWithTag("HUD"))
+        {
+
+            hudGO.GetComponent<HUDmanager>().activateDeathScreen();
+
+        } else
+        {
+
+            Debug.Log("No DeathScreen found!");
+
+        }
+
+    }
+
+    public void setSCH(SelectedCharacterHandler newSCH)
+    {
+
+        SCH = newSCH;
+
+    }
+
+    public void addPickup(string newPickup)
+    {
+
+        if (SCH != null)
+        {
+            SCH.addPickup(newPickup);
+        }
+
+    }
 
 	void Update(){
 		_unit.grounded = grounded;
 
 		if (groundedOld && !grounded) {
 			
-			jumped = true;
+			//jumped = true;
 			doubleJumped = false;
 			groundedOld = grounded;
 

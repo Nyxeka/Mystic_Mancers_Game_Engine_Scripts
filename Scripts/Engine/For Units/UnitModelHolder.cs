@@ -4,6 +4,13 @@ using UnityEngine;
 
 public class UnitModelHolder : MonoBehaviour {
 
+    //------------------------
+    // 2.5D GameUnit Direction Handler
+    // By: Nicholas J. Hylands
+    // me@nickhylands.com
+    // github.com/nyxeka
+    //------------------------
+
     GameUnit _unit;
 
     float yRotation;
@@ -14,6 +21,7 @@ public class UnitModelHolder : MonoBehaviour {
 
 	// Use this for initialization
 	void Start () {
+        
         _unit = GetComponentInParent<GameUnit>();
 
         //set up rotations before hand, we don't need to do the math over and over and over again.

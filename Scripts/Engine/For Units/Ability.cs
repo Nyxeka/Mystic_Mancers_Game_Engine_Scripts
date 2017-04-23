@@ -10,18 +10,17 @@ public enum targetList {
 [AddComponentMenu("Final Integrated Stuff/Ability")]
 public class Ability : MonoBehaviour {
 
-	/*
-	 * --------------------------------
-	 * 
-	 * Ability Class
-	 * 
-	 * This is a script component. You can add it through the inspector "add component" meny under Final Integrated Stuff.
-	 * 
-	 * 
-	 * --------------------------------
-	 */
+    //------------------------
+    // Ability Component
+    // By: Nicholas J. Hylands
+    // me@nickhylands.com
+    // github.com/nyxeka
+    //------------------------
 
-	public string abilityName = "new ability";
+    // for use with units to grant them abilities
+
+
+    public string abilityName = "new ability";
 
 	[Header("Cooldown in seconds")]
 	public float cooldown = 0.5f;
@@ -49,6 +48,9 @@ public class Ability : MonoBehaviour {
 	public Vector3 projSpawnOffset;
 
     public bool spawnAsChild = false;
+
+    [Header("Only use this bool if it's an enemy with a Die Ability!!!")]
+    public bool spawnObjectOnDisable;
 
 	[Space(20)]
 
@@ -100,7 +102,7 @@ public class Ability : MonoBehaviour {
 		if (useResource) {
 
 			if (cost > resource.getResourceAmount()) {
-				Debug.Log ("Not Enough Mana! cost: " + cost.ToString() + ", " + resource.resourceName + ": " + resource.getResourceAmount().ToString());
+				//Debug.Log ("Not Enough Mana! cost: " + cost.ToString() + ", " + resource.resourceName + ": " + resource.getResourceAmount().ToString());
 				return false;
 
 
@@ -171,44 +173,98 @@ public class Ability : MonoBehaviour {
         return (curCooldown % 60).ToString("00");
 
     }
-	
-	// Update is called once per frame
-	void Update () {
-        
 
-		//need to set the rotation for projectiles depending on the arm pos...
+    void OnDisable()
+    {
 
 
-		if (abilityTriggered) {
-			curDelay += Time.deltaTime;
+        if (spawnObjectOnDisable)
+        {
 
-			if (curDelay >= spawnProjectileDelay) {
+            if (abilityTriggered)
+            {
+                curDelay += Time.deltaTime;
 
-				curDelay = .0f;
+                if (curDelay >= spawnProjectileDelay)
+                {
 
-				if (hasProjectile && hasProjectileSpawnTarget) {
+                    curDelay = .0f;
 
-                    if (spawnAsChild)
-                        Instantiate(projectile, projectileSpawnAt.position + projSpawnOffset, projectileSpawnAt.rotation, gameObject.transform);
-                    else
-                        Instantiate(projectile, projectileSpawnAt.position + projSpawnOffset, projectileSpawnAt.rotation);
-                    
+                    if (hasProjectile && hasProjectileSpawnTarget)
+                    {
 
-				} else if (hasProjectile && !hasProjectileSpawnTarget) {
-                    if (spawnAsChild)
-                        Instantiate (projectile, gameObject.transform.position + projSpawnOffset, gameObject.transform.rotation);
-                    else
-                        Instantiate(projectile, gameObject.transform.position + projSpawnOffset, gameObject.transform.rotation, gameObject.transform);
+                        if (spawnAsChild)
+                            Instantiate(projectile, projectileSpawnAt.position + projSpawnOffset, projectileSpawnAt.rotation, gameObject.transform);
+                        else
+                            Instantiate(projectile, projectileSpawnAt.position + projSpawnOffset, projectileSpawnAt.rotation);
+
+
+                    }
+                    else if (hasProjectile && !hasProjectileSpawnTarget)
+                    {
+                        if (spawnAsChild)
+                            Instantiate(projectile, gameObject.transform.position + projSpawnOffset, gameObject.transform.rotation);
+                        else
+                            Instantiate(projectile, gameObject.transform.position + projSpawnOffset, gameObject.transform.rotation, gameObject.transform);
+
+                    }
+
+                    abilityTriggered = false;
+
+
 
                 }
 
-				abilityTriggered = false;
+            }
+
+        }
+
+    }
+	
+	// Update is called once per frame
+	void Update () {
+
+
+        //need to set the rotation for projectiles depending on the arm pos...
+
+        if (!spawnObjectOnDisable)
+        {
+            if (abilityTriggered)
+            {
+                curDelay += Time.deltaTime;
+
+                if (curDelay >= spawnProjectileDelay)
+                {
+
+                    curDelay = .0f;
+
+                    if (hasProjectile && hasProjectileSpawnTarget)
+                    {
+
+                        if (spawnAsChild)
+                            Instantiate(projectile, projectileSpawnAt.position + projSpawnOffset, projectileSpawnAt.rotation, gameObject.transform);
+                        else
+                            Instantiate(projectile, projectileSpawnAt.position + projSpawnOffset, projectileSpawnAt.rotation);
+
+
+                    }
+                    else if (hasProjectile && !hasProjectileSpawnTarget)
+                    {
+                        if (spawnAsChild)
+                            Instantiate(projectile, gameObject.transform.position + projSpawnOffset, gameObject.transform.rotation);
+                        else
+                            Instantiate(projectile, gameObject.transform.position + projSpawnOffset, gameObject.transform.rotation, gameObject.transform);
+
+                    }
+
+                    abilityTriggered = false;
 
 
 
-			}
+                }
 
-		}
+            }
+        }
 
 		//We can do cooldowns here, since it's pretty much only a visual thing.
 		if (curCooldown != .0f) {

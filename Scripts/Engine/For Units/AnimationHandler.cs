@@ -5,14 +5,19 @@ using UnityEngine.UI;
 
 public class AnimationHandler : MonoBehaviour {
 
-	/*
-	 * Animation Handler for Units.
-	 * 
-	 */
+    //------------------------
+    // Automated Animation Handler
+    // By: Nicholas J. Hylands
+    // me@nickhylands.com
+    // github.com/nyxeka
+    //------------------------
 
     Animation playerAnim;
 
     List<AnimationClip> animList;
+
+    AnimationClip idle;
+    AnimationClip idleVariant;
 
 	GameUnit _unit;
 
@@ -21,14 +26,16 @@ public class AnimationHandler : MonoBehaviour {
     RuntimeAnimatorController runAnimC;
 
     AnimatorOverrideController overC;
-
-
+    
     public GameObject playerObject;
 
     //speedmults for animations. These have a slider in the inspector.
     public float runningAnimSpeedMult = 1;
     public float climbingAnimSpeedMult = 1;
     public float attackingAnimSpeed = 1;
+    bool updateRunAnim;
+    bool updateClimbAnim;
+    bool updateAttackAnim;
 
     public bool playStoppingAnimation;
 
@@ -44,24 +51,33 @@ public class AnimationHandler : MonoBehaviour {
 
     int ladderAttackDir;
 
+    public bool manualAnimController;
+
     //TEMPORARY!!!
-    Text txtDebug;
+    //Text txtDebug;
+
+    bool hasUnit;
+
+    int numIdles;
 
     void Start() {
-        //set up unit.
-        _unit = gameObject.GetComponent<GameUnit>();
-        //animList = gameObject.GetComponeonts<Animation>();
-        //animList = GetComponents<Animation>();
+        // find the unit component
+        if (_unit = gameObject.GetComponent<GameUnit>())
+        {
+            hasUnit = true;
+        }
+        
+        
         refreshAnimationList();
 
         //TEMPORARY!!
-        if (txtDebug = GameObject.Find("txt_debug").GetComponent<Text>())
+        /*if (txtDebug = GameObject.Find("txt_debug").GetComponent<Text>())
         {
             StartCoroutine(debugText());
 
-        }
-
-        StartCoroutine(updateAnimStatePlayer());
+        }*/
+        if (hasUnit)
+            StartCoroutine(updateAnimStatePlayer());
 
     }
 
@@ -86,7 +102,7 @@ public class AnimationHandler : MonoBehaviour {
 
         //contained = AssetDatabase.LoadAllAssetsAtPath(assetPath);
 
-        Debug.Log("number of objects: " + contained.Length.ToString());
+        //Debug.Log("number of objects: " + contained.Length.ToString());
 
         //grab the animator on the player.
         playerAnimator = playerObject.GetComponent<Animator>();
@@ -114,20 +130,154 @@ public class AnimationHandler : MonoBehaviour {
                 animList.Add((AnimationClip)temp);
 
                 overC[temp.name] = (AnimationClip)temp;
-                
+
+                if (temp.name.ToLower().Contains("climb"))
+                {
+                    updateClimbAnim = true;
                     
+                }
+
+                if (temp.name.ToLower().Contains("attack"))
+                {
+                    updateAttackAnim = true;
+                }
+
+                if (temp.name.ToLower().Contains("run"))
+                {
+                    updateRunAnim = true;
+                }
+
+                if (temp.name.ToLower().Contains("idle") && !temp.name.ToLower().Contains("ladder"))
+                {
+
+                    numIdles += 1;
+
+                    if (idle == null)
+                    {
+
+                        idle = (AnimationClip)temp;
+
+                    } else
+                    {
+
+                        idleVariant = (AnimationClip)temp;
+
+                    }
+
+                }
+                
             }
             //Debug.Log("contains animation: " + temp.name);
-            
+        }
+        if (hasUnit)
+            StartCoroutine(updatePlayerAnimSpeeds());
+
+        if (numIdles > 1)
+        {
+
+            StartCoroutine(SwitchIdle());
+
         }
 
 
     }
 
-    IEnumerator updateAnimStatePlayer()
+    IEnumerator updatePlayerAnimSpeeds()
     {
 
+        // bool updated;
+
+        //Debug.Log("Upating player animation speeds" + updateRunAnim.ToString() + updateClimbAnim.ToString() + updateAttackAnim.ToString());
+
+        while (!playerAnimator.isInitialized)
+        {
+            yield return null;
+
+        }
+        playerAnimator.SetFloat("AttackingSpeedMult", GetComponent<AnimSpeedPrefs>().attackingAnimSpeed);
+        playerAnimator.SetFloat("LadderClimbSpeedMult", GetComponent<AnimSpeedPrefs>().climbingAnimSpeedMult);
+        playerAnimator.SetFloat("RunningSpeedMult", GetComponent<AnimSpeedPrefs>().runningAnimSpeedMult);
+        /*
+#if UNITY_EDITOR
+        if (updateRunAnim)
+            playerAnimator.SetFloat("AttackingSpeedMult", attackingAnimSpeed);
+
+        if (updateClimbAnim)
+            playerAnimator.SetFloat("LadderClimbSpeedMult", climbingAnimSpeedMult);
+        
+        if (updateAttackAnim)
+            playerAnimator.SetFloat("RunningSpeedMult", runningAnimSpeedMult);
+
+        INIWorker.IniWriteValue("Animation Speeds", playerObject.name + "AttackingSpeedMult", attackingAnimSpeed.ToString());
+        INIWorker.IniWriteValue("Animation Speeds", playerObject.name + "LadderClimbSpeedMult", climbingAnimSpeedMult.ToString());
+        INIWorker.IniWriteValue("Animation Speeds", playerObject.name + "RunningSpeedMult", runningAnimSpeedMult.ToString());
+
+#endif
+
+        float newAttackAnimSpeed;
+        float newClimbAnimSpeed;
+        float newRunAnimSpeed;
+        
+
+        if (float.TryParse(INIWorker.IniReadValue("Animation Speeds",playerObject.name + "AttackingSpeedMult"),out newAttackAnimSpeed))
+        {
+
+            playerAnimator.SetFloat("AttackingSpeedMult", attackingAnimSpeed);
+
+        }
+        if (float.TryParse(INIWorker.IniReadValue("Animation Speeds", playerObject.name + "LadderClimbSpeedMult"), out newClimbAnimSpeed))
+        {
+
+            playerAnimator.SetFloat("LadderClimbSpeedMult", newClimbAnimSpeed);
+
+        }
+        if (float.TryParse(INIWorker.IniReadValue("Animation Speeds", playerObject.name + "RunningSpeedMult"), out newRunAnimSpeed))
+        {
+
+            playerAnimator.SetFloat("AttackingSpeedMult", newRunAnimSpeed);
+
+        }*/
+
+    }
+
+    IEnumerator SwitchIdle()
+    {
+        bool variant = false;
+        while (true)
+        {
+
+            if (Mathf.Floor(Random.Range(0,3)) == 0)
+            {
+
+                overC["Idle"] = idleVariant;
+                variant = true;
+
+            } else if (overC["Idle"] != idle)
+            {
+                variant = false;
+                overC["Idle"] = idle;
+
+            }
+            if (variant)
+            {
+                yield return new WaitForSeconds(idleVariant.length);
+
+            } else
+            {
+                yield return new WaitForSeconds(idle.length);
+
+            }
+            yield return null; //wait another frame just in case. We don't want an infinite loop.
+
+        }
+
+    }
+
+    IEnumerator updateAnimStatePlayer()
+    {
+        
         yield return new WaitUntil(() => (_unit.unitRB != null));
+
         Debug.Log("_unit loaded, starting anim state handler.");
         while (true)
         {
@@ -150,12 +300,12 @@ public class AnimationHandler : MonoBehaviour {
                 if (_unit.armDir == ArmDir.up)
                 {
                     ladderState = 1;
-                    playerAnimator.SetFloat("LadderClimbSpeedMult", 1);
+                    playerAnimator.SetFloat("LadderClimbSpeedMult", climbingAnimSpeedMult);
                 }
                 else if (_unit.armDir == ArmDir.down)
                 {
                     ladderState = 2;
-                    playerAnimator.SetFloat("LadderClimbSpeedMult", -1);
+                    playerAnimator.SetFloat("LadderClimbSpeedMult", -climbingAnimSpeedMult);
                 }
                 else if (_unit.armDir == ArmDir.forwards)
                 {
@@ -223,18 +373,6 @@ public class AnimationHandler : MonoBehaviour {
 
         }
 
-
-    }
-
-    IEnumerator debugText()
-    {
-        yield return new WaitForSeconds(1);
-        while (true)
-        {
-
-            txtDebug.text = "" + playerAnimator.GetCurrentAnimatorClipInfo(0)[0].clip.name;
-            yield return null;
-        }
 
     }
 

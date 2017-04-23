@@ -2,207 +2,215 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/*
- * 
- * List of states:
- * 
- * initialize:
- * AI starting up. Do whatever needs to be done here.
- * 
- * idle:
- * AI will sit and idle
- * 
- * patrolling:
- * AI is just walking back and forth
- * 
- * hunting: 
- * If patrolling or following finds a unit of enemy faction, then give chase and attack with whatever methods are available
- * 
- * 
- * -------
- * While our AI is moving, we want it to try to move, check and see if its moving, and think about how it could get past an obstical. Also Check to see if there's something for it to walk on. 
- * 
- * What to do about flying enemies?
- * 
- * Would have abilities for moving up and down.
- * 
- * AI controller will have separate controls for special enemies.
- * 
- * Flying enemies will have to have abilities that say stuff like:
- * "move towards player", with triggers like "isPlayerVisible"
- * Attack player when ability is off cooldown
- * 
- * Will be handled by abilities.
- * Need to add some more ability triggers somehow.
- * 
- * Default AI will have a set "resolution" for pathfinding.
- * We'll set a range of vision, and a bunch of triggers for what happens when things appear or disappear in the vision.
- * We'll provide functions like 
- * (if this percentage of the vision returns nothing from the top to the bottom, then do this thing)
- * "if more than this percentage of the vision returns something,
- * or if it returns nothing between this angle of visiona nd this angle of vision, then do something, like change direction, cast ability, etc...
- * 
- * 
- * AI will also have some sort of defined "awareness zone". We need to figure out how to do that.
- * 
- * So like, if a unit of a certain faction enters the awareness "zone", then a raycast is drawn to that unit, and if it hits that unit, then
- * the AI can "see" that unit.
- * Maybe just draw raycasts to all units in the gameworld of a certain faction. (this would be the faction they are hunting).
- * 
- * Enemy awareness zones will be handled with 2D colliders.
- * 
- * Make sure to Get list of abilities properly.
- * 
- * use: physics.spherecast to check and see if there are things that we can walk through?
- * 
- * use overlapSphere 
- * 
- */
 
-public enum AIState { 
-	initialize, idle, patrolling, hunting, escaping, following
-}
 
-public enum MoveType {
-	moveWalk,moveHop,moveFloat
-}
+
 
 [AddComponentMenu("Final Integrated Stuff/AI Controller")]
 public class AIController : UnitController {
 
-	//if you don't declare the scope of a variable, it defaults to private.
-	AIState currentState;
+    //------------------------
+    // AI Controller Component
+    // By: Nicholas J. Hylands
+    // me@nickhylands.com
+    // github.com/nyxeka
+    //------------------------
 
-	public MoveType moveType = MoveType.moveHop;
+    // Generic ground-unit AI controller
+    // requires a unit component
+    #region variables
+    public enum AIState
+    {
+        initialize, idle, patrolling, hunting, escaping, following
+    }
 
-	public bool friendly;
-
-	public bool flyingUnit = false;
-
-	public float followDistance = 20.0f;
-
-	public float fovMin = -60.0f;
-	public float fovMax = 60.0f;
-
-	public float visionRange = 20.0f;
-
-	public float distanceToAttackTarget = 10.0f;
-
-	public bool followPlayer = false;
-	[Header("When out of range:")]
-	public bool teleportToPlayer = true;
-
-	[Space(20)]
-	public bool noclip;
-
+    //if you don't declare the scope of a variable, it defaults to private.
+    AIState currentState;
+    
+    // use ability components for moving, or built-in functions.
 	public bool abilityControlMovement;
 
+    // finite state machine running
 	public bool AI_RUNNING = true;
 
-	public float speedMultManualMove = 15;
+    bool attacking = false;
+    public float moveAfterAttackDelay = 0.0f;
 
-	public float jumpHeight = 10;
+    // for non-ability-controlled movement.
+    [Header("Speed in meters per second")]
+    public float speedmps = 1.0f;
+    
+	public float jumpHeight = 10.0f;
+    public float jumpForwardsForce = 7.0f;
 
+    // range from the player in which we will try to trigger attacks.
+    public float attackRange = 10.0f;
+
+    public float attackFrequency = 1.0f;
+
+    // use for the triggercollider methods in the vision child game object
+    EnemyVision vis;
+
+    public float visionRange = 10.0f;
+
+    //since we're basically only going to ever be targetting the player for now.
+    Transform player;
+
+    //our list of patrol-points.
 	public List<Transform> patrolPointList;
 	public int currentPatrolPointTarget = 0;
 
-	GameUnit targetUnit;
 
-	GameUnit followUnit;
+    //distance from the target location we need to be before we decide to stop mgoing forwards.
+    public float distanceToStop = 0.0f;
 
-	//how many seconds will pass before we check the distance between us and target, and if we're not getting closer, then turn around.
-	public float delayNoMoveTurnAround = 2;
+    // this is the position that we'll be trying to move towards.
+    Vector3 targetLocation;
 
-	float maxJumpHeight; //This is set every time we do a jump.
-
-	Vector3 targetLocation;
-
-	//bool constantForwardVelocity = false;
-
+    // the current number of attempts we've made to traverse obstacles between us and target.
 	int numTriesForPoint = 0;
 
+    // if the unit comes accross an obstacle, it will only try to get to its target
+    // this many times before switching to another target.
 	public int maxAttemptsToTravel = 6;
 
+    // the delay between progress checks. 
+    // minimum every 0.02 seconds. 
+    public float progressCheckDelay = 0.5f;
+
+    // we've attempted the jump. May be deprecated soon.
 	bool attemptedJump = false;
 
+    // tell the AI to make its next move a jump.
 	bool nextMoveIsLeap = false;
 
-	//bool checkedGround = false;
+    // minimum distance in which we can say we've "reached the target"
+    public float minDistance = 0.5f;
 
-	/// <summary>
-	/// The number of raycasts to put between the two angles of FOV on the ground infront of the unit.
-	/// Vision Resolution
-	/// </summary>
-	/*public int visRes = 3;
+    // for general use
+    float distanceFromTarget = 0;
 
-	public float minFOV = -80.0f;
-	public float maxFOV = -45.0f;
+    /// <summary>
+    /// Move check target location
+    /// for the "have we moved closer to our target?" method.
+    /// </summary>
+    Vector3 moveCheckTL;
 
-	public float checkRange = 8;
-	//probably not going to use these.
-	*/
+    float distanceFromMoveCheckTL;
 
-	void Start(){
+    float oldDistanceFromTarget = 0;
+
+    public bool printDebug;
+
+    // update move check target location. For later use, 
+    // while it's true we'll be updating the current pos relative to the last tracked
+    // target position.
+    bool updateMCTL = false;
+
+    [SerializeField]
+    bool checkFloorMissing = true;
+
+    [SerializeField]
+    float gapCheckIncrement = 1.0f;
+    //in meters. Tells the AI to check for missing ground.
+
+    [SerializeField]
+    float gapCheckDepth = 3.0f;
+
+    float moveDelay = 0;
+
+    public bool startInIdle = false;
+
+    #endregion
+
+    void Start(){
 		//since we are overriding start method from unitController parent:
 		_unit = gameObject.GetComponent<GameUnit> ();
 
-		//set start state
-		currentState = AIState.initialize;
+        vis = gameObject.GetComponentInChildren<EnemyVision>();
 
+        if (!vis)
+        {
+            GameObject visGO;
+            visGO = Instantiate(Resources.Load<GameObject>("Vision"), transform,false);
+            vis = visGO.GetComponent<EnemyVision>();
+        }
+
+        //set start state
+        currentState = AIState.initialize;
+        
 		if (_unit)
 			AI_RUNNING = true;
 		else
 			AI_RUNNING = false;
 
-		StartCoroutine (AI_FSM ());
+        if (progressCheckDelay <= 0.02f)
+        {
 
+            progressCheckDelay = 0.02f;
+
+        }
+
+        // we want to make sure there are patrol points that have been put in here.
+        
+
+        
+        // begin the finite state machine.
+        StartCoroutine (AI_FSM ());
+        
 	}
+
+    #region methods
+    void updateTargetLocation()
+    {
+
+        targetLocation = patrolPointList[currentPatrolPointTarget].transform.position;
+
+    }
 
 	//assuming enemy is facing player, which it should be, especially if the player is in the AI zone.
 	public void MoveForwards(){
 		
-
 		if (nextMoveIsLeap) {
 			//leap!
 			StartCoroutine( JumpForwards ());
 			nextMoveIsLeap = false;
 		}else if (abilityControlMovement) {
-			
-			_unit.TriggerAbility ("Move");
+            
+            if (_unit.TriggerAbility("Move"))
+                StartCoroutine(CheckIfMovedToTarget());
 
-		} else if (moveType == MoveType.moveHop) {
-			//normal move
-			_unit.unitRB.AddForce (Vector3.right * (_unit.directionMult * speedMultManualMove));
-
-		} else if (moveType == MoveType.moveWalk) {
-
-			_unit.unitRB.AddForce (Vector3.right * (_unit.directionMult * speedMultManualMove));
+		} else {
+            _unit.unitRB.MovePosition(transform.position + (Vector3.right * (_unit.directionMult * speedmps * Time.deltaTime)));
 		}
 
 	}
 
 	IEnumerator JumpForwards(){
-		//Debug.Log ("Trying a Leap");
-
-		if (abilityControlMovement) {
+        debug ("Trying a Leap");
+        if (abilityControlMovement) {
 			if (_unit.TriggerAbility ("Leap")) {
-				//Debug.Log ("Lept!");
-				yield return new WaitForSeconds (0.3f);
+                debug ("Lept!");
+                StartCoroutine(CheckIfMovedToTarget());
+                yield return new WaitForSeconds (0.3f);
 				_unit.ForceTriggerAbility ("Move");
 			}
 
 		} else {
 
-			_unit.unitRB.AddForce ((_unit.directionMult * speedMultManualMove),jumpHeight,.0f);
+            if (_unit.TriggerAbility("Leap"))
+            {
+                //Debug.Log("We're still going up!!");
+                yield return new WaitForSeconds(0.3f);
+                _unit.unitRB.AddForce((_unit.directionMult * jumpForwardsForce), jumpHeight / 2, .0f, ForceMode.Impulse);
+            }
 
-		}
+        }
 
 		attemptedJump = true;
-		yield return null;
 	}
 
-	//When patrolling
-	public void turnAround(){
+	public void turnAround(){ 
 
 		if (_unit.legDir == LegDir.left)
 			_unit.legDir = LegDir.right;
@@ -222,171 +230,418 @@ public class AIController : UnitController {
 	}
 
 
-	bool checkForMissingFloor(){
-		//basically in here, we're going to scan the floor before we move. A few simple raycasts should do the trick.
-		//if we notice the floor is missing, we don't move forwards again, instead we jump.
-		//if it's to far, we turn around. 
+	bool IsFloorMissing(){
+        //basically in here, we're going to scan the floor before we move. A few simple raycasts should do the trick.
+        //if we notice the floor is missing, we don't move forwards again, instead we jump.
+        //if it's to far, we turn around. 
+        if (checkFloorMissing)
+        {
+            bool groundIsThere = true;
 
-		/*bool groundIsThere = true;
+            Ray cast = new Ray(transform.position + Vector3.right * _unit.directionMult * gapCheckIncrement, Vector3.down);
 
-		float increment = (Mathf.Abs(maxFOV) - Mathf.Abs(minFOV))/(float)visRes;
+            groundIsThere = Physics.Raycast(cast, gapCheckDepth);
 
-		for (int i = 0;i < visRes;i++){
-			
-			groundIsThere = (Physics.Raycast(transform.position, Quaternion.AngleAxis(minFOV - (increment*(float)i),Vector3.forward) * Vector3.right,8));
-				
-		}
-		return groundIsThere;*/
-		return false;
+            Debug.DrawLine(cast.origin, cast.origin + (Vector3.down * gapCheckDepth), Color.black, 0.5f);
 
-
+            return !groundIsThere;
+        }
+        
+        return false;
+        
 	}
 
-	IEnumerator resetJumpAttempt(){
+    void useAttackAbility()
+    {
+        
+        _unit.TriggerAbility("Attack");
 
-		while (AI_RUNNING) {
+    }
 
-			attemptedJump = false;
-			yield return new WaitForSeconds (1.5f);
-		}
+    bool isFacingPlayer()
+    {
 
+        float dirToPlayer = player.transform.position.x - transform.position.x;
 
+        //Debug.Log("Player in sight!");
 
-	}
+        if ((dirToPlayer / Mathf.Abs(dirToPlayer)) == _unit.directionMult)
+        {
 
-	IEnumerator checkIfMovingToTarget(){
+            return true;
 
-		Debug.Log ("Started routine: check if moving towards target");
+        }
 
-		float distance;
+        return false;
 
-		distance = Vector3.Distance (transform.position, targetLocation);
+    }
 
-		float oldDistance = distance;
+    public void DelayMoving(float time)
+    {
 
-		yield return new WaitForSeconds (1);
+        moveDelay = time;
 
-		while (AI_RUNNING) {
+    }
 
-			distance = Vector3.Distance (transform.position, targetLocation);
-			//if there's no progress, turn around and move in the other direction.
+    #endregion
 
-			//if the old distance is less than the new distance, then we haven't made progress.
+    #region coroutines
 
-			if ((Mathf.Abs (oldDistance - distance) < 0.1f) && !attemptedJump) {
-				//very little progress. Attempt leap.
-				nextMoveIsLeap = true;
-				Debug.Log ("Going to Attempt a Leap.");
-				//yield return new WaitForSeconds (delayNoMoveTurnAround);
-				//numTriesForPoint++;
+    IEnumerator UpdateMCTL() //update move check target location. 
+    {
+        /*
+        basically we want to be doing this for a fixed amount of time.
+        */
+        float time = 0.0f;
+        updateMCTL = true;
+        while (updateMCTL)
+        {
+            time = time + Time.deltaTime;
+            distanceFromMoveCheckTL = Vector3.Distance(transform.position, moveCheckTL);
 
-			} else if ((Mathf.Abs (oldDistance - distance) < 0.1f) && attemptedJump){
-				numTriesForPoint++;
-				turnAround ();
-
-			}else if (oldDistance < distance) {
-				Debug.Log ("Turning around because I'm moving away from my target.");
-				numTriesForPoint++;
-				turnAround ();
-
-				if (numTriesForPoint > maxAttemptsToTravel) {
-					nextPoint ();
-					targetLocation = patrolPointList [currentPatrolPointTarget].transform.position;
-					numTriesForPoint = 0;
-					Debug.Log ("Switching Targets, since this just isn't working.");
-				}
-
-			} else {
-                attemptedJump = false;
+            if (time > 10.0f) //this should never last longer than 10 seconds. 
+            {
+                break;
             }
 
-			oldDistance = distance;
+            yield return null;
 
-			yield return new WaitForSeconds (delayNoMoveTurnAround);
+        }
 
-		}
+    }
 
-		Debug.Log ("Exiting routine: checkIfMovingToTarget");
+    
+    IEnumerator CheckIfMovingToTargetContinuousMovement()
+    {
 
-	}
+        moveCheckTL = targetLocation;
+        //debug ("Started routine: check if moving towards target");
+        //if the old distance is less than the new distance, then we haven't made progress.
+        yield return new WaitForSeconds(progressCheckDelay);
+        while (true)
+        {
+            if (!attacking)
+            {
+                distanceFromMoveCheckTL = Vector3.Distance(transform.position, moveCheckTL);
 
-	IEnumerator initialize(){
+                if (Mathf.Abs(distanceFromMoveCheckTL - oldDistanceFromTarget) < 0.01)
+                {
 
-		yield return new WaitForSeconds (2);
+                    // we've moved less than 0.01 meters since the last movement check.
+                    if (!attemptedJump)
+                        nextMoveIsLeap = true;
+                    else
+                        turnAround();
 
-		Debug.Log ("Ran init on AI controller for " + gameObject.name);
+                }
+                else if (distanceFromMoveCheckTL > oldDistanceFromTarget)
+                {
 
+                    // we've been moving away from our target. Turn around!
+                    turnAround();
 
-		currentState = AIState.patrolling;
+                }
+                else
+                {
+
+                    attemptedJump = false;
+
+                }
+
+                if (IsFloorMissing())
+                {
+
+                    turnAround();
+
+                }
+
+                oldDistanceFromTarget = distanceFromMoveCheckTL;
+
+                moveCheckTL = targetLocation;
+            }
+            yield return new WaitForSeconds(progressCheckDelay);
+        }
+
+    }
+
+    IEnumerator CheckIfMovedToTarget(){
+
+        moveCheckTL = targetLocation;
+        StartCoroutine(UpdateMCTL());
+        //debug ("Started routine: check if moving towards target");
+        //if the old distance is less than the new distance, then we haven't made progress.
+        debug("██████RUNNING MOVEMENT SCAN██████");
+        
+        oldDistanceFromTarget = distanceFromMoveCheckTL;
+
+        debug("old distance:" + oldDistanceFromTarget.ToString());
+        //wait-until: Create a delegate for that boolean, and check it every frame until its true!
+        debug("waiting for movement to start");
+        //wait for movement to start.
+        //yield return new WaitUntil(() => _unit.unitRB.velocity.magnitude > 0.01);
+        yield return new WaitForSeconds(0.1f);
+        debug("waiting for movement to end");
+        //Now that movement has started, we want to wait until its over.
+        yield return new WaitUntil(() => _unit.unitRB.velocity.magnitude < 0.01);
+        debug("checking for movement:");
+
+        if (IsFloorMissing())
+        {
+            turnAround();
+            numTriesForPoint++;
+
+        }else if ((Mathf.Abs (oldDistanceFromTarget - distanceFromMoveCheckTL) < 0.1f)) { //no movement and we haven't jumped yet.
+			nextMoveIsLeap = true;
+            numTriesForPoint++;
+            debug("numTriesForPoint: " + numTriesForPoint.ToString());
+        }else if (oldDistanceFromTarget < distanceFromMoveCheckTL) {
+            debug("new distance = " + distanceFromMoveCheckTL.ToString());
+            debug("Turning around because I'm moving away from my target.");
+			turnAround ();
+            
+        } else
+        {
+            numTriesForPoint = 0;
+        }
+
+        
+
+        if (numTriesForPoint > maxAttemptsToTravel)
+        {
+            nextPoint();
+            if (!IsFloorMissing())
+            {
+                turnAround();
+            }
+
+            targetLocation = patrolPointList[currentPatrolPointTarget].transform.position;
+            numTriesForPoint = 0;
+            debug("Switching Targets, since this just isn't working.");
+        }
+
+        debug("█  █  █  █Scan Over█  █  █  █");
+        updateMCTL = false;
+
+    }
+
+    #endregion
+
+    #region States
+
+    IEnumerator initialize(){
+
+        yield return new WaitForSeconds (2);
+
+        debug ("Ran init on AI controller for " + gameObject.name);
+        
+        StartCoroutine(_unit.doMovementChecking());
+
+        player = GameObject.FindGameObjectWithTag("Player").transform;
+        if (patrolPointList == null)
+        {
+
+            patrolPointList = new List<Transform>();
+
+        }
+        if (patrolPointList.Count > 0)
+        {
+            for (int i = 0; i < patrolPointList.Count; i++)
+            {
+
+                if (patrolPointList[i] == null)
+                {
+
+                    Debug.Log("Warning! No patrol point set for: " + name + " on slot: " + (i + 1).ToString() + "!\nConsider reducing the size of the list or adding an object to the list.");
+                    patrolPointList[i] = transform;
+
+                }
+
+            }
+        }
+        else
+        {
+
+            Debug.Log("Warning, patrol point list empty! Adding self as patrolPoint");
+            patrolPointList.Add(transform);
+            currentPatrolPointTarget = 0;
+
+        }
+
+        if (player != null)
+        {
+            if (startInIdle)
+            {
+                currentState = AIState.idle;
+            }
+            else {
+                currentState = AIState.patrolling;
+            }
+
+        } else
+        {
+
+            currentState = AIState.idle;
+
+        }
 
 		yield return null;
 
 	}
 
 	IEnumerator idle(){
-		//More or less the same as patrolling, except while standing still.
-		//will queue the abilities as usual.
+        //More or less the same as patrolling, except while standing still.
+        //will queue the abilities as usual.
+        while (currentState == AIState.idle)
+        {
+            if (vis.enemyInSight)
+            {
 
-		yield return null;
+                if (isFacingPlayer())
+                {
 
+                    currentState = AIState.hunting;
+                    targetLocation = player.position;
 
+                }
+
+            }
+
+            yield return null;
+
+        }
+        
 	}
 
 	IEnumerator patrolling(){
-		
-		float distance;
 
-		Debug.Log ("Entered Patrolling State");
+        debug("Entered Patrolling State");
+        //WalkAround
+        //if point A and point B are set, walk to those. 
+        //bool goingToPoint = true;
+        bool atTarget = false;
 
-		targetLocation = patrolPointList[currentPatrolPointTarget].transform.position;
+        //float oldDistanceToPoint;
 
-		//WalkAround
-		//if point A and point B are set, walk to those. 
-		bool goingToPoint = true;
+        if (!abilityControlMovement)
+        {
 
-		//float oldDistanceToPoint;
-		StartCoroutine (checkIfMovingToTarget ());
+            StartCoroutine("CheckIfMovingToTargetContinuousMovement");
 
-		while (goingToPoint) {
-			
-			distance = Vector3.Distance (transform.position, targetLocation);
+        }
 
-			MoveForwards ();
-			if (distance < 1.0) {
+        while (currentState == AIState.patrolling) {
+
+            targetLocation = patrolPointList[currentPatrolPointTarget].transform.position;
+            distanceFromTarget = Vector3.Distance (transform.position, targetLocation);
+
+            
+            if (distanceFromTarget > distanceToStop)
+            {
+                MoveForwards();
+            }
+
+			if (distanceFromTarget < minDistance && !atTarget) {
 				
-				if (Vector3.Distance (targetLocation, patrolPointList[currentPatrolPointTarget].transform.position) < 1.0) {
-					nextPoint ();
-					targetLocation = patrolPointList[currentPatrolPointTarget].transform.position;
-					Debug.Log ("target set to: " + patrolPointList [currentPatrolPointTarget].gameObject.name);
-				}
+				nextPoint ();
+                debug("target set to: " + patrolPointList [currentPatrolPointTarget].gameObject.name);
+                atTarget = true;
 
-				//Debug.Log ("Switching Target: " + distance.ToString() + " : " + targetLocation.ToString());
+            }
+            else if (atTarget)
+            {
 
-			}
+                if (distanceFromTarget > minDistance)
+                {
+
+                    atTarget = false;
+
+                }
+
+            }
+
+            if (vis.enemyInSight)
+            {
+
+                if (isFacingPlayer()) { 
+
+                    currentState = AIState.hunting;
+                    targetLocation = player.position;
+
+                }
+
+            }
 
 			yield return null;
 
 		}
 
-		yield return null;
-
-		StopCoroutine ("checkIfMovingToTarget");
-	}
+		StopCoroutine ("CheckIfMovedToTarget");
+        StopCoroutine("CheckIfMovingToTargetContinuousMovement");
+    }
 
 	IEnumerator hunting(){
 
-		bool inRange = true;
+        float attackTimer = 0;
 
-		while (inRange) {
+        //float checkDist;
 
-			//make sure this is done in fixedupdate.
-			yield return new WaitForFixedUpdate();
+        float jumpDelay = 1.5f;
 
-		}
+        float jumpTimer = 0.0f;
+        
+        while (currentState == AIState.hunting)
+        {
+            attackTimer += Time.deltaTime;
+            
+            targetLocation = player.position;
+            distanceFromTarget = Vector3.Distance(transform.position, targetLocation);
 
-		yield return null;
+            if (!isFacingPlayer())
+            {
+                //Debug.Log("not facing player!");
+                turnAround();
 
-	}
+            }
+
+            if (moveDelay > 0)
+            {
+                yield return new WaitForSeconds(moveDelay);
+                moveDelay = 0;
+                
+            }
+            
+            if (distanceFromTarget > distanceToStop)
+            {
+                MoveForwards();
+            }
+
+            if (distanceFromTarget > visionRange)
+            {
+
+                currentState = AIState.patrolling;
+                updateTargetLocation();
+
+            }
+
+            if (distanceFromTarget < attackRange)
+            {
+                if (attackTimer > attackFrequency)
+                {
+                    if (isFacingPlayer())
+                    {
+                        useAttackAbility();
+                        attackTimer = 0;
+                        attacking = true;
+                        yield return new WaitForSeconds(moveAfterAttackDelay);
+                        attacking = false;
+                    }
+                }
+            }
+
+            yield return null;
+
+        }
+    }
 
 	IEnumerator escaping(){
 
@@ -404,10 +659,18 @@ public class AIController : UnitController {
 
 		while (true) {
 			if (AI_RUNNING) {
+                // this pauses until the state is finished.
 				yield return StartCoroutine(currentState.ToString ());
 			}
 		}
 
 	}
+    #endregion
+
+    void debug(string text)
+    {
+        if (printDebug)
+            Debug.Log(text);
+    }
 
 }
